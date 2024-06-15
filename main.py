@@ -4,6 +4,35 @@ import requests
 import os
 from getpass import getpass
 
+import html2text
+from langchain_community.document_loaders import AsyncHtmlLoader
+from langchain_community.document_transformers import Html2TextTransformer
+
+
+def do_webscraping(link):
+    try:
+        urls = [link]
+        loader = AsyncHtmlLoader(urls)
+        docs = loader.load()
+
+        html2text_transformer = Html2TextTransformer()
+        docs_transformed = html2text_transformer.transform_documents(docs)
+
+        if docs_transformed != None and len(docs_transformed) > 0:
+            metadata = docs_transformed[0].metadata
+            title = metadata.get('title', '')
+            return {
+                'summary': docs_transformed[0].page_content,
+                'title': title,
+                'metadata': metadata,
+                'clean_content': html2text.html2text(docs_transformed[0].page_content)
+            }
+        else:
+            return None
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None
 
 
 def fetch_search_results(query):
@@ -18,6 +47,7 @@ def fetch_search_results(query):
 
 
 def parse_search_results(response):
+    # TODO ensure result list is returned
     results = []
     for result in response.get('web', {}).get('results', []):
         results.append({
@@ -50,7 +80,7 @@ chat = ChatTogether(
 )
 
 
-template_text = """<s>[INST] Evaluate the usefulness of these search results for the query "{query}":
+search_template_text = """<s>[INST] Evaluate the usefulness of these search results for the query "{query}":
 {results}
 Output a JSON list containing exactly 3 links to the most relevant results. Follow these rules strictly:
 1. Only include links to comprehensive text reviews of the product.
@@ -70,22 +100,39 @@ def evaluate_results(query, results):
     results_text = json.dumps(
         [{"title": result["title"], "url": result["url"], "snippet": result["snippet"]} for result in results],
         indent=0)
-    print(results_text)
+    # print(results_text)
     input_data = {
         "query": query,
         "results": results_text
     }
 
     # Format the prompt
-    final_prompt = template_text.format(query=input_data["query"], results=input_data["results"])
+    final_prompt = search_template_text.format(query=input_data["query"], results=input_data["results"])
 
     # Invoke the model with the formatted prompt
     output = chat.invoke(final_prompt)
     return output
 
+
+# TODO ensure returned result is a json with 3 links
 # Example usage
 query = f"{query}"
 evaluated_results = evaluate_results(query, search_results)
-print(evaluated_results)
-print(evaluated_results.content)
+# print(evaluated_results)
+# print(evaluated_results.content)
+relevant_urls = json.loads(evaluated_results.content)
+
+
+review_content = ""
+
+
+for url in relevant_urls:
+    print(url)
+
+    response = do_webscraping(url)
+    if response != None:
+        review_content += response['clean_content'] + "\n\n-----\n\n"
+
+print(review_content)
+
 
