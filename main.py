@@ -7,6 +7,8 @@ import asyncio
 from langchain_community.document_loaders import AsyncHtmlLoader
 from langchain_community.document_transformers import Html2TextTransformer
 from langchain_together import ChatTogether
+from flask import Flask, jsonify, request
+import asyncio
 
 # Initialize the models for natural language processing
 chat = ChatTogether(
@@ -58,7 +60,8 @@ comparison_template_text = """<s>[INST] You will need to help user compare {prod
     ===== {product2_name} REVIEWS START HERE =====:
     {product2_content}
     ===== {product2_name} REVIEWS END HERE =====
-    You HAVE TO output your answer in JSON 
+    You HAVE TO output your answer in JSON.
+    You MUST ensure your output is a VALID JSON.
 
     JSON OUTPUT:[/INST]"""
 
@@ -164,13 +167,27 @@ async def compare_two_products(product1, product2, user_request):
         # Generate and return the comparison
         return await generate_comparison(product1_data, product2_data, user_request)
 
+
 # Main async function
-async def main():
-    product1 = "razer deathadder v2 pro"
-    product2 = "deathadder v2x"
-    user_request = "I really like smaller phones"
-    comparison_result = await compare_two_products(product1, product2, user_request)
-    print(comparison_result.content)  # Adjust based on how you want to handle output
+app = Flask(__name__)
+
+
+# This is your existing asynchronous function wrapped in a new function to handle Flask requests.
+@app.route('/compare_products', methods=['POST'])
+def compare_products():
+    data = request.get_json()
+    product1 = data.get('product1')
+    product2 = data.get('product2')
+    user_request = data.get('user_request')
+
+    # We wrap the async call with asyncio.run to ensure it is run in an event loop
+    comparison_result = asyncio.run(compare_two_products(product1, product2, user_request))
+
+    # Return JSON result
+    return comparison_result.content
+
+
+# Ensure to have your asyncio logic functions here or import them if they are in another file.
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    app.run(debug=True, use_reloader=False)  # Turn off reloader if running in production
