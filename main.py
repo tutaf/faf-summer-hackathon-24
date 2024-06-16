@@ -23,13 +23,13 @@ comparison_chat = ChatTogether(
 
 search_template_text = """<s>[INST] Evaluate the usefulness of these search results for the query "{query}". Make sure the name of the product matches the query:
     {results}
-    Output a JSON list containing exactly 2 links to the most relevant results. Follow these rules strictly:
+    Output a JSON list containing exactly 3 links to the most relevant results. Follow these rules strictly:
     1. Only include links to comprehensive text reviews of the product.
     2. Do NOT include links to videos, video reviews, or multimedia content.
     3. Prioritize reviews from independent creators. Avoid commercial websites with generic articles, unless they specialize in this domain.
     4. Exclude product reveals, announcements, and any publications that do not provide a thorough user experience overview.
     5. Exclude links to websites that only list product specifications and nothing else, wiki pages, or stores/marketplaces.
-    Your output must strictly be a JSON list with exactly 2 items, each being a link from the search results. Do not include any other text or explanation, only the JSON list.
+    Your output must strictly be a JSON list with exactly 3 items, each being a link from the search results. Do not include any other text or explanation, only the JSON list.
     Output:[/INST]"""
 
 comparison_template_text = """<s>[INST] You will need to help user compare {product1_name}  and {product2_name}. 
@@ -166,8 +166,8 @@ async def compare_two_products(product1, product2, user_request):
 
 # Main async function
 async def main():
-    product1 = "nokia g42"
-    product2 = "moto g34"
+    product1 = "razer deathadder v2 pro"
+    product2 = "deathadder v2x"
     user_request = "I really like smaller phones"
     comparison_result = await compare_two_products(product1, product2, user_request)
     print(comparison_result.content)  # Adjust based on how you want to handle output
