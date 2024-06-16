@@ -39,18 +39,21 @@ comparison_template_text = """<s>[INST] You will need to help user compare {prod
     1. A list named "comparisons". The list will contain comparisons by a few categories. You are free create from 2 to 5 categories. Each list entry will have:
         1.1. A "category_title" - 1-3 word long category name;
         1.2. "category_description" - 1-2 sentences telling what this is and why this comparison criterion is important;
-        1.3. "product1_text" - A few sentences, explaining how the first product performs in this category, what its downsides and advantages are. Use clear language, remember you're trying to be useful, but don't make things complicated for user. Do NOT overwhelm user with numbers and technical terms.
-        1.4. "product2_text" - Same, but for product 2. Do NOT overwhelm user with numbers and technical terms.
+        1.3. "product1_text" - A few sentences, explaining how the first product performs in this category, what its downsides and advantages are compared to product2. Use clear language, remember you're trying to be useful, but don't make things complicated for user. Do NOT overwhelm user with numbers and technical terms.
+        1.4. "product2_text" - Same, but for product 2. Do NOT overwhelm user with numbers and technical terms. Do not use the exact same wordings as in "product1_text", show a little creativity.     
     2. An item called "final_verdict" - explain what is the better choice overall and why, up to 3 sentences long. Do NOT overwhelm user with numbers and technical terms.
     
     Remember, your comparison descriptions and verdict must be easy to comprehend for a user, who is new to the topic and does not know all the intricacies of technology.
 
     Products to compare:
-    {product1_name}:
+    ===== {product1_name} REVIEWS START HERE =====
     {product1_content}
-    =====
-    {product2_name}:
+    ===== {product1_name} REVIEWS END HERE =====
+    
+    ===== {product2_name} REVIEWS START HERE =====:
     {product2_content}
+    ===== {product2_name} REVIEWS END HERE =====
+
     JSON OUTPUT:[/INST]"""
 
 all_links = []
@@ -156,8 +159,8 @@ async def compare_two_products(product1, product2):
 
 # Main async function
 async def main():
-    product2 = "nokia g42"
-    product1 = "moto g34"
+    product1 = "nokia g42"
+    product2 = "moto g34"
     comparison_result = await compare_two_products(product1, product2)
     print(comparison_result.content)  # Adjust based on how you want to handle output
 
