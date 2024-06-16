@@ -23,27 +23,32 @@ comparison_chat = ChatTogether(
 
 search_template_text = """<s>[INST] Evaluate the usefulness of these search results for the query "{query}". Make sure the name of the product matches the query:
     {results}
-    Output a JSON list containing exactly 3 links to the most relevant results. Follow these rules strictly:
+    Output a JSON list containing exactly 2 links to the most relevant results. Follow these rules strictly:
     1. Only include links to comprehensive text reviews of the product.
     2. Do NOT include links to videos, video reviews, or multimedia content.
     3. Prioritize reviews from independent creators. Avoid commercial websites with generic articles, unless they specialize in this domain.
     4. Exclude product reveals, announcements, and any publications that do not provide a thorough user experience overview.
     5. Exclude links to websites that only list product specifications and nothing else, wiki pages, or stores/marketplaces.
-    Your output must strictly be a JSON list with exactly 3 items, each being a link from the search results. Do not include any other text or explanation, only the JSON list.
+    Your output must strictly be a JSON list with exactly 2 items, each being a link from the search results. Do not include any other text or explanation, only the JSON list.
     Output:[/INST]"""
 
 comparison_template_text = """<s>[INST] You will need to help user compare {product1_name}  and {product2_name}. 
     Your user is not a professional, so you shouldn't overwhelm them with technical terms and numbers. Focus on what's important for this user, on their experience with the product.
+    
+    Also, user has shared some info about themselves. It is paramount to look at the choice between these two products through user's eyes. Keep in mind that the user is not tech-savvy, so instead of overwhelming them with numbers, specs and technical terms, explain what it means to for them. Explain what user's experience will be like, not how many megapixels a camera has (this is just an example of a useless specification). 
+    Here's the information shared by user: "{user_request}"
+    You MUST keep user's usecase in mind when comparing the products. 
 
     You will output JSON containing two things:
-    1. A list named "comparisons". The list will contain comparisons by a few categories. You are free create from 2 to 5 categories. Each list entry will have:
+    1. A JSON list named "comparisons". The list will contain comparisons by a few categories. You are free create from 2 to 5 categories. Each list entry will have:
         1.1. A "category_title" - 1-3 word long category name;
         1.2. "category_description" - 1-2 sentences telling what this is and why this comparison criterion is important;
-        1.3. "product1_text" - A few sentences, explaining how the first product performs in this category, what its downsides and advantages are compared to product2. Use clear language, remember you're trying to be useful, but don't make things complicated for user. Do NOT overwhelm user with numbers and technical terms.
-        1.4. "product2_text" - Same, but for product 2. Do NOT overwhelm user with numbers and technical terms. Do not use the exact same wordings as in "product1_text", show a little creativity.     
-    2. An item called "final_verdict" - explain what is the better choice overall and why, up to 3 sentences long. Do NOT overwhelm user with numbers and technical terms.
+        1.3. "product1_text" - A few sentences, explaining how the first product performs in this category, what its downsides and advantages are compared to product2. Use clear language, remember you're trying to be useful, but don't make things complicated for user. Do NOT overwhelm user with numbers and technical terms. Remember, you are trying to help the user, so keep his usecase in mind when comparing the products.
+        1.4. "product2_text" - Same as for product above, but for product 2. Do NOT overwhelm user with numbers and technical terms. Do not use the exact same wordings as in "product1_text", show a little creativity.     
+    2. A JSON item called "final_verdict" - explain what is the better choice overall and why, up to 3 sentences long. Do NOT overwhelm user with numbers and technical terms. No ambiguity or "it's up to you" is allowed here, you must provide a definitive answer.
     
     Remember, your comparison descriptions and verdict must be easy to comprehend for a user, who is new to the topic and does not know all the intricacies of technology.
+    Also, you MUST output your answer in JSON format. 
 
     Products to compare:
     ===== {product1_name} REVIEWS START HERE =====
@@ -53,6 +58,7 @@ comparison_template_text = """<s>[INST] You will need to help user compare {prod
     ===== {product2_name} REVIEWS START HERE =====:
     {product2_content}
     ===== {product2_name} REVIEWS END HERE =====
+    You HAVE TO output your answer in JSON 
 
     JSON OUTPUT:[/INST]"""
 
@@ -120,9 +126,10 @@ def evaluate_results(query, results):
 
 
 # Function to generate a comparison based on two sets of product reviews
-async def generate_comparison(product1, product2):
+async def generate_comparison(product1, product2, user_request):
     prompt = comparison_template_text.format(product1_name=product1['name'], product1_content=product1['content'],
-                                             product2_name=product2['name'], product2_content=product2['content'])
+                                             product2_name=product2['name'], product2_content=product2['content'],
+                                             user_request=user_request)
 
     # Using ThreadPoolExecutor to run synchronous code asynchronously
     with concurrent.futures.ThreadPoolExecutor() as pool:
@@ -132,7 +139,7 @@ async def generate_comparison(product1, product2):
         return comparison
 
 # Main workflow to compare two products, using async
-async def compare_two_products(product1, product2):
+async def compare_two_products(product1, product2, user_request):
     async with aiohttp.ClientSession() as session:
         product1_response = await fetch_search_results(session, product1+" review")
         product1_results = parse_search_results(product1_response)
@@ -155,13 +162,14 @@ async def compare_two_products(product1, product2):
         product2_data = {'name': product2, 'content': product2_content}
 
         # Generate and return the comparison
-        return await generate_comparison(product1_data, product2_data)
+        return await generate_comparison(product1_data, product2_data, user_request)
 
 # Main async function
 async def main():
     product1 = "nokia g42"
     product2 = "moto g34"
-    comparison_result = await compare_two_products(product1, product2)
+    user_request = "I really like smaller phones"
+    comparison_result = await compare_two_products(product1, product2, user_request)
     print(comparison_result.content)  # Adjust based on how you want to handle output
 
 if __name__ == "__main__":
