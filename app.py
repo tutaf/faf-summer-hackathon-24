@@ -4,11 +4,16 @@ import os
 import html2text
 import aiohttp
 import asyncio
+
+import vertexai
 from langchain_community.document_loaders import AsyncHtmlLoader
 from langchain_community.document_transformers import Html2TextTransformer
 from langchain_together import ChatTogether
 from flask import Flask, jsonify, request
 import asyncio
+from langchain_google_vertexai import VertexAI
+
+
 
 # Initialize the models for natural language processing
 chat = ChatTogether(
@@ -17,10 +22,17 @@ chat = ChatTogether(
     together_api_key=os.environ['TOGETHER_API_KEY']
 )
 
-comparison_chat = ChatTogether(
+mistral_chat = ChatTogether(
     model="mistralai/Mixtral-8x22B-Instruct-v0.1",
     temperature=0.02,
     together_api_key=os.environ['TOGETHER_API_KEY']
+)
+
+vertexai.init(project="deductive-mix-407619")
+
+comparison_chat = VertexAI(
+    model="gemini-1.5-flash",
+    project_id="deductive-mix-407619",
 )
 
 search_template_text = """<s>[INST] Evaluate the usefulness of these search results for the query "{query}". Make sure the name of the product matches the query:
@@ -34,7 +46,7 @@ search_template_text = """<s>[INST] Evaluate the usefulness of these search resu
     Your output must strictly be a JSON list with exactly 3 items, each being a link from the search results. Do not include any other text or explanation, only the JSON list.
     Output:[/INST]"""
 
-comparison_template_text = """<s>[INST] You will need to help user compare {product1_name}  and {product2_name}. 
+comparison_template_text = """You will need to help user compare {product1_name}  and {product2_name}. 
     Your user is not a professional, so you shouldn't overwhelm them with technical terms and numbers. Focus on what's important for this user, on their experience with the product.
     
     Also, user has shared some info about themselves. It is paramount to look at the choice between these two products through user's eyes. Keep in mind that the user is not tech-savvy, so instead of overwhelming them with numbers, specs and technical terms, explain what it means to for them. Explain what user's experience will be like, not how many megapixels a camera has (this is just an example of a useless specification). 
@@ -62,8 +74,8 @@ comparison_template_text = """<s>[INST] You will need to help user compare {prod
     ===== {product2_name} REVIEWS END HERE =====
     You HAVE TO output your answer in JSON.
     You MUST ensure your output is a VALID JSON.
-
-    JSON OUTPUT:[/INST]"""
+    Your response must contain only the JSON and nothing else. Do NOT envelop the json contents in triple backticks, do NOT output markdown.
+    JSON OUTPUT:"""
 
 all_links = []
 
@@ -134,12 +146,17 @@ async def generate_comparison(product1, product2, user_request):
                                              product2_name=product2['name'], product2_content=product2['content'],
                                              user_request=user_request)
 
+    with open('comparison_prompt.txt', 'w', encoding='utf-8') as f:
+        print(prompt, file=f)
+
     # Using ThreadPoolExecutor to run synchronous code asynchronously
     with concurrent.futures.ThreadPoolExecutor() as pool:
         comparison = await asyncio.get_event_loop().run_in_executor(
             pool, comparison_chat.invoke, prompt
         )
+        print(comparison)
         return comparison
+
 
 # Main workflow to compare two products, using async
 async def compare_two_products(product1, product2, user_request):
@@ -184,7 +201,7 @@ def compare_products():
     comparison_result = asyncio.run(compare_two_products(product1, product2, user_request))
 
     # Return JSON result
-    return comparison_result.content
+    return comparison_result
 
 
 # Ensure to have your asyncio logic functions here or import them if they are in another file.
